@@ -55,22 +55,23 @@ def get_position(word , words):
     indices = [i+1 for i in range(len(words)) if words[i]==word]
     return indices
 #normal
-def term_per_doc_func(processing_method, stemming_method, query): 
+def term_per_doc_func(processing_method, stemming_method, query , method): 
     # Doc number , vocabulary size , taille , Term , fréqance
-
     #transforme the query
     doc_num = None
     try : 
         doc_num = [int(num) for num in query.split(" ")]
     except Exception as e:
         print(e)
-    
     # Extract data 
     doc_content=""
-    df = pd.DataFrame(columns=["doc" , "Term" , "Frequance" , "Poids" , "Position" , "just a spacer"])
+    if method == "normal" :
+        df = pd.DataFrame(columns=["doc" , "Term" , "Frequance" , "Poids" , "Position" , "just a spacer"])
+    else :
+        df = pd.DataFrame(columns=["Term" , "Doc" , "Frequance" , "Poids" , "Position" , "just a spacer"])
     if doc_num :
         for i in doc_num:
-            doc_content += open(f"Collections/D{i}.txt").read()
+            doc_content = open(f"Collections/D{i}.txt").read()
             #Tokenization
             if processing_method == "Regex":
                 words = Extract_Regex(doc_content)
@@ -102,8 +103,12 @@ def term_per_doc_func(processing_method, stemming_method, query):
             #building df 
             for j in words :
                 positions = get_position(j , words_redandance)
-                df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-        display_results(df)
+                if method == "normal" :
+                    df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                else :
+                    df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+        display_results(df.sort_values(by="Term"))
+
     elif query :
         for i in os.listdir("Collections/"):
             doc_content = open(f"Collections/{i}").read()
@@ -129,11 +134,11 @@ def term_per_doc_func(processing_method, stemming_method, query):
             # remove stop words 
             words = [word for word in words if word not in stop_words]
 
-            #remove non needed query 
-            words = [word for word in words if word == query]
-
             #Calculate freancies and max number of frequencies
             freqs , maximum = calcule_freq(words)
+
+            #remove non needed query 
+            words = [word for word in words if word == query]
 
             # Calculer l'appartition dans les autres document 
             apparition = calcule_apparition(stemmer , processing_method)
@@ -143,15 +148,12 @@ def term_per_doc_func(processing_method, stemming_method, query):
             #building df 
             for j in words :
                 positions = get_position(j , words_redandance)
-                df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-        display_results(df)
-    else :
-        print("specify your query")
-    pass
-# inverse
-def doc_per_term_func(processing_method, stemming_method, query):
-    pass
-
+                if method == "normal" :
+                    df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                    
+                else :
+                    df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+            display_results(df.sort_values(by="Term"))
 
 st.title("Search and Indexing Tool")
 
@@ -170,6 +172,6 @@ if st.button("Search"):
         st.error("Please enter a search query.")
     else:
         if indexing_method == "DOCS per TERM":
-            doc_per_term_func(processing_method, stemming_method, search_query)
+            term_per_doc_func(processing_method, stemming_method, search_query , "inverse")
         else:  # TERMS per DOC
-            term_per_doc_func(processing_method, stemming_method, search_query)
+            term_per_doc_func(processing_method, stemming_method, search_query , "normal")
