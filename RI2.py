@@ -29,7 +29,6 @@ def calcule_freq(words):
         maximum = max(freqs[key] , maximum)
     return freqs , maximum
 
-
 def calcule_apparition(stemmer , tokenizer):
     all_words=[]
     for i in os.listdir("Collections/"):
@@ -107,7 +106,10 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
                     df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
                 else :
                     df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-        display_results(df.sort_values(by="Term"))
+        if method == "normal":
+            display_results(df)
+        else :
+            display_results(df.sort_values(by="Term").reset_index())
 
     elif query :
         for i in os.listdir("Collections/"):
@@ -117,7 +119,7 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
                 words = Extract_Regex(doc_content)
             else : 
                 words = Extract_Split(doc_content)
-            
+
             #Stemming
             if stemming_method == "Porter":
                 stemmer = PorterStemmer()
@@ -150,10 +152,12 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
                 positions = get_position(j , words_redandance)
                 if method == "normal" :
                     df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-                    
                 else :
                     df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-            display_results(df.sort_values(by="Term"))
+        if method == "normal":
+            display_results(df)
+        else :
+            display_results(df.sort_values(by="Term").reset_index())
 
 st.title("Search and Indexing Tool")
 
@@ -171,7 +175,7 @@ if st.button("Search"):
     if not search_query:
         st.error("Please enter a search query.")
     else:
-        if indexing_method == "DOCS per TERM":
+        if indexing_method == "DOCS per TERM (Inverse)":
             term_per_doc_func(processing_method, stemming_method, search_query , "inverse")
         else:  # TERMS per DOC
             term_per_doc_func(processing_method, stemming_method, search_query , "normal")
