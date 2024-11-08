@@ -30,7 +30,7 @@ for index, filename in enumerate(os.listdir("Collections")):
             for word in filtered:
                 print(word)
                 try : 
-                    poids = (freqs[word]/maximum)*((math.log10(6)/apparition[word])+1)
+                    poids = (freqs[word]/maximum) * math.log10(6/apparition[word]+1)
                 except Exception as e: 
                     print("")
                 if index != 0 :

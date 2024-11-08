@@ -6,126 +6,151 @@ from nltk.stem import PorterStemmer, LancasterStemmer
 from nltk.corpus import stopwords
 from collections import Counter
 import math
-
 import nltk
-nltk.download('punkt')
-nltk.download('stopwords')
-stop_words = set(stopwords.words('english'))
 
+stop_words = list(set(stopwords.words('english')))
 def display_results(results_df):
     st.write("Results (Terms per Document):")
     st.dataframe(pd.DataFrame(results_df).style.set_properties(**{'width': '800px'}))
 
-def display_results2(results_df):
-    st.write("Results (Documents per Term):")
-    st.dataframe(pd.DataFrame(results_df).style.set_properties(**{'width': '800px'}))
+def Extract_Regex(text):
+    pattern = '(?:[A-Za-z]\.)+|[A-Za-z]+[\-@]\d+(?:\.\d+)?|\d+[A-Za-z]+|\d+(?:[\.\,\-]\d+)?%?|\w+(?:[\-/]\w+)*'
+    words = re.findall(pattern , text)
+    return words
 
-def term_per_doc_func(processing_method, stemming_method, doc_num=None, query=None): 
-    collections_path = "C:\\Users\\abdo7\\OneDrive\\Bureau\\RI\\venv\\RI\\Collections"
-    regex = r'(?:[A-Za-z]\.)+|[A-Za-z]+[\-@]\d+(?:\.\d+)?|\d+[A-Za-z]+|\d+(?:[\.\,\-]\d+)?%?|\w+(?:[\-/]\w+)*'
-    doc=""
-    for index, filename in enumerate(os.listdir(collections_path)):
-        with open(f"Collections/{filename}") as file:
-            document = file.read()
+def Extract_Split(text):
+    words = text.split()
+    return words 
+
+def calcule_freq(words):
+    freqs = Counter(words)
+    maximum=0
+    for key in freqs:
+        maximum = max(freqs[key] , maximum)
+    return freqs , maximum
+
+
+def calcule_apparition(stemmer , tokenizer):
+    all_words=[]
+    for i in os.listdir("Collections/"):
+        text = open(f"Collections/{i}").read()
+        if tokenizer =="Regex": 
+            words = Extract_Regex(text)
+        else : 
+            words = Extract_Split(text)
+
+        words = [stemmer.stem(word) for word in words]
+        words = [word for word in words if word not in stop_words]
+        words = list(set(words))
+        all_words.extend(words)
+    
+    apparition = Counter(all_words)
+    return apparition
+
+def calculate_weight(word ,freqs, maximum , apparition):
+    weight = (freqs[word] / maximum)*math.log10(6/apparition[word] + 1)
+    return weight
+
+def get_position(word , words):
+    indices = [i+1 for i in range(len(words)) if words[i]==word]
+    return indices
+#normal
+def term_per_doc_func(processing_method, stemming_method, query): 
+    # Doc number , vocabulary size , taille , Term , fréqance
+
+    #transforme the query
+    doc_num = None
+    try : 
+        doc_num = [int(num) for num in query.split(" ")]
+    except Exception as e:
+        print(e)
+    
+    # Extract data 
+    doc_content=""
+    df = pd.DataFrame(columns=["doc" , "Term" , "Frequance" , "Poids" , "Position" , "just a spacer"])
+    if doc_num :
+        for i in doc_num:
+            doc_content += open(f"Collections/D{i}.txt").read()
             #Tokenization
-            if processing_method == "Split" : 
-                words = document.split()
-            elif processing_method == "Regex":
-                words = re.findall(regex, document.lower())
-            #Stemmer
-            stemmer = None
+            if processing_method == "Regex":
+                words = Extract_Regex(doc_content)
+            else : 
+                words = Extract_Split(doc_content)
+            #Stemming
             if stemming_method == "Porter":
                 stemmer = PorterStemmer()
                 words = [stemmer.stem(word) for word in words]
             elif stemming_method == "Lancaster":
                 stemmer = LancasterStemmer()
                 words = [stemmer.stem(word) for word in words]
-            #All in one doc
-            doc += " ".join(list(set(words)))
-
-    all_data=[]
-    apparition = Counter(re.findall(regex, doc.lower())) 
-    for index, filename in enumerate(os.listdir(collections_path)):
-        with open(f"Collections/{filename}") as file:   
-            doc = file.read()
             
-            words = re.findall(regex, doc.lower())
-            if query : 
-                filtered = [word for word in words if word not in stop_words and word==query]
+            # final repeated version 
+            words_redandance = words 
+
+            # remove stop words 
+            words = [word for word in words if word not in stop_words]
+
+            #Calculate freancies and max number of frequencies
+            freqs , maximum = calcule_freq(words)
+
+            # Calculer l'appartition dans les autres document 
+            apparition = calcule_apparition(stemmer , processing_method)
+
+            # remove redandancy 
+            words = list(set(words))
+
+            #building df 
+            for j in words :
+                positions = get_position(j , words_redandance)
+                df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+        display_results(df)
+    elif query :
+        for i in os.listdir("Collections/"):
+            doc_content = open(f"Collections/{i}").read()
+            #Tokenization
+            if processing_method == "Regex":
+                words = Extract_Regex(doc_content)
             else : 
-                filtered = [word for word in words if word not in stop_words and filename==f"D{doc_num}.txt"]
-            if stemmer : 
-                filtered = [stemmer.stem(word) for word in filtered]
-            freqs = Counter(filtered)
-            print("===========len=======:" + str(len(filtered)))
-            filtered = list(set(filtered))
-            maximum = 0
-            for key in freqs :
-                maximum = max(freqs[key] , maximum)  
-            for word in filtered:
-                try : 
-                    poids = (freqs[word]/maximum)*((math.log10(6)/apparition[word])+1)
-                    all_data.append({"index" : index + 1 , "word" :word , "freq" : freqs[word] , "poids" :poids})
-                except Exception as e: 
-                    pass
-    display_results(all_data)
+                words = Extract_Split(doc_content)
+            
+            #Stemming
+            if stemming_method == "Porter":
+                stemmer = PorterStemmer()
+                words = [stemmer.stem(word) for word in words]
+                query = stemmer.stem(query)
+            elif stemming_method == "Lancaster":
+                stemmer = LancasterStemmer()
+                words = [stemmer.stem(word) for word in words]
+                query = stemmer.stem(query)
+            
+            # final repeated version 
+            words_redandance = words 
 
-def doc_per_term_func(processing_method, stemming_method, doc_num=None, query=None):
-    """
-    Processes documents and calculates term frequencies and weights per term, showing document occurrences.
-    """
-    collections_path = "C:\\Users\\abdo7\\OneDrive\\Bureau\\RI\\venv\\RI\\Collections"
-    regex = r"(?:[A-Za-z]\.)+|[A-Za-z]+[\-@]\d+(?:\.\d+)?|\d+[A-Za-z]+|\d+(?:[\.\,\-]\d+)?%?|\w+(?:[\-/]\w+)*"
+            # remove stop words 
+            words = [word for word in words if word not in stop_words]
 
-    stemmer = None
-    if stemming_method == "Porter":
-        stemmer = PorterStemmer()
-    elif stemming_method == "Lancaster":
-        stemmer = LancasterStemmer()
+            #remove non needed query 
+            words = [word for word in words if word == query]
 
-    term_data = {}  
-    for index, filename in enumerate(os.listdir(collections_path)):
-        filepath = os.path.join(collections_path, filename)
-        try:
-            with open(filepath, 'r', encoding='utf-8') as file:
-                document = file.read()
-                if processing_method == "Split":
-                    words = document.split()
-                elif processing_method == "Regex":
-                    words = re.findall(regex, document.lower())
-                else:
-                    raise ValueError("Invalid processing_method. Choose 'Split' or 'Regex'.")
+            #Calculate freancies and max number of frequencies
+            freqs , maximum = calcule_freq(words)
 
-                if stemmer:
-                    words = [stemmer.stem(word) for word in words]
-                
-                if doc_num:
-                    words = [word for word in words if word not in stop_words and filename==f"D{doc_num}.txt"]
-                else : 
-                    words = [word for word in words if word not in stop_words and word==query]
-                print("===========len=======:"+str(len(words)))
-                words = list(set(words))
-                for word in words:
-                    if word not in term_data:
-                        term_data[word] = {'docs': [], 'total_freq': 0}
-                    term_data[word]['docs'].append(index + 1)
-                    term_data[word]['total_freq'] += 1
+            # Calculer l'appartition dans les autres document 
+            apparition = calcule_apparition(stemmer , processing_method)
 
-        except (FileNotFoundError, UnicodeDecodeError) as e:
-            print(f"Error processing file {filename}: {e}")
-            continue
-
-    #Calculate weights (this part needs adjustment based on your desired weighting scheme)
-    all_data = []
-    total_docs = len(os.listdir(collections_path))
-    for term, data in term_data.items():
-        idf = math.log10(total_docs / len(data['docs']))  #Inverse Document Frequency
-        for doc_num in data['docs']:
-            tf = data['total_freq'] / total_docs #Term Frequency (simplified for this example)
-            weight = tf * idf
-            all_data.append({"term": term, "doc_num": doc_num, "freq": data['total_freq'], "weight": weight})
-
-    display_results2(all_data)
+            # remove redandancy 
+            words = list(set(words))
+            #building df 
+            for j in words :
+                positions = get_position(j , words_redandance)
+                df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+        display_results(df)
+    else :
+        print("specify your query")
+    pass
+# inverse
+def doc_per_term_func(processing_method, stemming_method, query):
+    pass
 
 
 st.title("Search and Indexing Tool")
@@ -138,24 +163,13 @@ processing_method = st.selectbox("Tokenization:", ["Regex","Split"])
 stemming_method = st.selectbox("Stemmer:", ["Porter", "Without", "Lancaster"])
 
 st.subheader("Indexing Options")
-indexing_method = st.radio("Index Type:", ["DOCS per TERM", "TERMS per DOC"])
+indexing_method = st.radio("Index Type:", ["DOCS per TERM (Inverse)", "TERMS per DOC (Normale)"])
 
 if st.button("Search"):
     if not search_query:
         st.error("Please enter a search query.")
     else:
-        try:
-            if indexing_method == "DOCS per TERM":
-                try:
-                    doc_num = int(search_query)
-                    doc_per_term_func(processing_method, stemming_method, doc_num=doc_num)
-                except ValueError:
-                    doc_per_term_func(processing_method, stemming_method, query=search_query)
-            else:  # TERMS per DOC
-                try:
-                    doc_num = int(search_query)
-                    term_per_doc_func(processing_method, stemming_method, doc_num=doc_num)
-                except ValueError:
-                    term_per_doc_func(processing_method, stemming_method, query=search_query)
-        except Exception as e:
-            st.exception(e)
+        if indexing_method == "DOCS per TERM":
+            doc_per_term_func(processing_method, stemming_method, search_query)
+        else:  # TERMS per DOC
+            term_per_doc_func(processing_method, stemming_method, search_query)
