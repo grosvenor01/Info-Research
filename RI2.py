@@ -34,17 +34,17 @@ def calcule_apparition(stemmer , tokenizer):
     for i in os.listdir("Collections/"):
         text = open(f"Collections/{i}").read()
         if tokenizer =="Regex": 
-            words = Extract_Regex(text)
+            words_ = Extract_Regex(text)
         else : 
-            words = Extract_Split(text)
-
-        words = [stemmer.stem(word) for word in words]
-        words = [word for word in words if word not in stop_words]
-        words = list(set(words))
-        all_words.extend(words)
+            words_ = Extract_Split(text)
+        if stemmer:
+            words_ = [stemmer.stem(word) for word in words_]
+        words_ = [word for word in words_ if word not in stop_words]
+        words_ = list(set(words_))
+        all_words.extend(words_)
     
     apparition = Counter(all_words)
-    return apparition
+    return apparition 
 
 def calculate_weight(word ,freqs, maximum , apparition):
     weight = (freqs[word] / maximum)*math.log10(6/apparition[word] + 1)
@@ -65,30 +65,42 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
     # Extract data 
     doc_content=""
     if method == "normal" :
-        df = pd.DataFrame(columns=["doc" , "Term" , "Frequance" , "Poids" , "Position" , "just a spacer"])
+        df = pd.DataFrame(columns=["doc" , "Term" ,"Taille", "Frequance" , "Poids" , "Position" , "just a spacer"])
     else :
-        df = pd.DataFrame(columns=["Term" , "Doc" , "Frequance" , "Poids" , "Position" , "just a spacer"])
+        df = pd.DataFrame(columns=["Term" , "Doc" ,"Taille" ,"Frequance" , "Poids" , "Position" , "just a spacer"])
     if doc_num :
         for i in doc_num:
             doc_content = open(f"Collections/D{i}.txt").read()
+
             #Tokenization
             if processing_method == "Regex":
                 words = Extract_Regex(doc_content)
             else : 
                 words = Extract_Split(doc_content)
-            #Stemming
-            if stemming_method == "Porter":
-                stemmer = PorterStemmer()
-                words = [stemmer.stem(word) for word in words]
-            elif stemming_method == "Lancaster":
-                stemmer = LancasterStemmer()
-                words = [stemmer.stem(word) for word in words]
             
-            # final repeated version 
+            #Saved for Positions 
             words_redandance = words 
 
             # remove stop words 
             words = [word for word in words if word not in stop_words]
+
+            #Stemming
+            if stemming_method == "Porter":
+                stemmer = PorterStemmer()
+                words = [stemmer.stem(word) for word in words]
+                words_redandance = [stemmer.stem(word) for word in words_redandance]
+            elif stemming_method == "Lancaster":
+                stemmer = LancasterStemmer()
+                words = [stemmer.stem(word) for word in words]
+                words_redandance = [stemmer.stem(word) for word in words_redandance]
+            else :
+                stemmer =None
+            
+            # remove stop words second time 
+            words = [word for word in words if word not in stop_words]
+            
+            #saved for doc length 
+            doc_size = len(words)
 
             #Calculate freancies and max number of frequencies
             freqs , maximum = calcule_freq(words)
@@ -103,9 +115,9 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
             for j in words :
                 positions = get_position(j , words_redandance)
                 if method == "normal" :
-                    df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
                 else :
-                    df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                    df.loc[len(df)] = [j , i ,doc_size,freqs[j]  ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
         if method == "normal":
             display_results(df)
         else :
@@ -119,22 +131,31 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
                 words = Extract_Regex(doc_content)
             else : 
                 words = Extract_Split(doc_content)
+            
+            #Saved for Positions 
+            words_redandance = words 
+
+            # remove stop words 
+            words = [word for word in words if word not in stop_words]
 
             #Stemming
             if stemming_method == "Porter":
                 stemmer = PorterStemmer()
                 words = [stemmer.stem(word) for word in words]
                 query = stemmer.stem(query)
+                words_redandance = [stemmer.stem(word) for word in words_redandance]
             elif stemming_method == "Lancaster":
                 stemmer = LancasterStemmer()
                 words = [stemmer.stem(word) for word in words]
                 query = stemmer.stem(query)
+                words_redandance = [stemmer.stem(word) for word in words_redandance]
+            else :
+                stemmer =None
             
-            # final repeated version 
-            words_redandance = words 
-
             # remove stop words 
             words = [word for word in words if word not in stop_words]
+
+            doc_size = len(words)
 
             #Calculate freancies and max number of frequencies
             freqs , maximum = calcule_freq(words)
@@ -151,16 +172,15 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
             for j in words :
                 positions = get_position(j , words_redandance)
                 if method == "normal" :
-                    df.loc[len(df)] = [i , j , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
                 else :
-                    df.loc[len(df)] = [j , i , freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
+                    df.loc[len(df)] = [j , i ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
         if method == "normal":
             display_results(df)
         else :
             display_results(df.sort_values(by="Term").reset_index())
 
 st.title("Search and Indexing Tool")
-
 st.subheader("Query:")
 search_query = st.text_input("Enter your search query (document number or term):")
 
