@@ -54,7 +54,7 @@ def get_position(word , words):
     indices = [i+1 for i in range(len(words)) if words[i]==word]
     return indices
 #normal
-def term_per_doc_func(processing_method, stemming_method, query , method): 
+def term_per_doc_func(processing_method, stemming_method, query , method , vect=None): 
     # Doc number , vocabulary size , taille , Term , fréqance
     #transforme the query
     doc_num = None
@@ -65,9 +65,10 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
     # Extract data 
     doc_content=""
     if method == "normal" :
-        df = pd.DataFrame(columns=["doc" , "Term" ,"Taille", "Frequance" , "Poids" , "Position" , "just a spacer"])
+        df = pd.DataFrame(columns=["Doc" , "Term" ,"Taille", "Frequance" , "Poids" , "Position" , "just a spacer"])
     else :
         df = pd.DataFrame(columns=["Term" , "Doc" ,"Taille" ,"Frequance" , "Poids" , "Position" , "just a spacer"])
+    
     if doc_num :
         for i in doc_num:
             doc_content = open(f"Collections/D{i}.txt").read()
@@ -138,34 +139,42 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
             # remove stop words 
             words = [word for word in words if word not in stop_words]
 
-            #Stemming
+            # Stemming
             if stemming_method == "Porter":
                 stemmer = PorterStemmer()
                 words = [stemmer.stem(word) for word in words]
-                query = stemmer.stem(query)
+                if vect :
+                    query_try = query.split(" ")
+                    query_try = [stemmer.stem(i) for i in query_try]
+                else:
+                    query_try = stemmer.stem(query)
+                
                 words_redandance = [stemmer.stem(word) for word in words_redandance]
             elif stemming_method == "Lancaster":
                 stemmer = LancasterStemmer()
                 words = [stemmer.stem(word) for word in words]
-                query = stemmer.stem(query)
+                if vect :
+                    query_try = query.split(" ")
+                    query_try = [stemmer.stem(i) for i in query_try ]
+                else:
+                    query_try = stemmer.stem(query)
                 words_redandance = [stemmer.stem(word) for word in words_redandance]
             else :
                 stemmer =None
-            
             # remove stop words 
             words = [word for word in words if word not in stop_words]
-
             doc_size = len(words)
 
             #Calculate freancies and max number of frequencies
             freqs , maximum = calcule_freq(words)
 
             #remove non needed query 
-            words = [word for word in words if word == query]
-
+            if vect :
+                words = [word for word in words if word in query_try]
+            else : 
+                words = [word for word in words if word == query_try]
             # Calculer l'appartition dans les autres document 
             apparition = calcule_apparition(stemmer , processing_method)
-
             # remove redandancy 
             words = list(set(words))
             #building df 
@@ -176,9 +185,16 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
                 else :
                     df.loc[len(df)] = [j , i ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
         if method == "normal":
+            if vect : 
+                df = df.groupby(["Doc"]).sum()
+                df = df.sort_values(by="Poids" , ascending=False)
             display_results(df)
         else :
+            if vect : 
+                df = df.groupby(["Doc"]).sum()
+                df = df.sort_values(by="Poids" , ascending=False)
             display_results(df.sort_values(by="Term").reset_index())
+
 
 st.title("Search and Indexing Tool")
 st.subheader("Query:")
@@ -195,7 +211,8 @@ if st.button("Search"):
     if not search_query:
         st.error("Please enter a search query.")
     else:
-        if indexing_method == "DOCS per TERM (Inverse)":
-            term_per_doc_func(processing_method, stemming_method, search_query , "inverse")
-        else:  # TERMS per DOC
-            term_per_doc_func(processing_method, stemming_method, search_query , "normal")
+        if len(search_query.split()) > 1:
+            if indexing_method == "DOCS per TERM (Inverse)":
+                term_per_doc_func(processing_method, stemming_method, search_query , "inverse" , vect = True)
+            else:  # TERMS per DOC
+                term_per_doc_func(processing_method, stemming_method, search_query , "normal" , vect = True)
