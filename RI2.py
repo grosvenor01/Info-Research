@@ -184,16 +184,22 @@ def term_per_doc_func(processing_method, stemming_method, query , method , vect=
                     df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
                 else :
                     df.loc[len(df)] = [j , i ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions , "     "]
-        if method == "normal":
-            if vect : 
-                df = df.groupby(["Doc"]).sum()
-                df = df.sort_values(by="Poids" , ascending=False)
-            display_results(df)
-        else :
-            if vect : 
-                df = df.groupby(["Doc"]).sum()
-                df = df.sort_values(by="Poids" , ascending=False)
-            display_results(df.sort_values(by="Term").reset_index())
+
+        if vect : 
+            df = df.groupby(["Doc"]).sum()
+            df = df.sort_values(by="Poids" , ascending=False).reset_index()
+        vi = math.sqrt(len(df))
+        vi2 = len(df) 
+        wi=0
+        for i in range(len(df)):
+            wi+=df.loc[i , "Poids"]**2
+        wi2=wi
+        wi = math.sqrt(wi)
+        
+        for i in range(len(df)):
+            df["RSV"] = df["Poids"] / (vi*wi)
+            df["JACARD"] = df["Poids"] / (vi2 + wi2 - df["Poids"])
+        display_results(df)
 
 
 st.title("Search and Indexing Tool")
