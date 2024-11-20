@@ -7,7 +7,7 @@ from nltk.corpus import stopwords
 from collections import Counter
 import math
 import nltk
-
+import numpy as np
 stop_words = list(set(stopwords.words('english')))
 def display_results(results_df):
     st.write("Results (Terms per Document):")
@@ -50,13 +50,10 @@ def calculate_weight(word ,freqs, maximum , apparition):
     weight = (freqs[word] / maximum)*math.log10(6/apparition[word] + 1)
     return weight
 
-def get_position(word , words):
-    indices = [i+1 for i in range(len(words)) if words[i]==word]
-    return indices
 #normal
-def term_per_doc_func(processing_method, stemming_method, query , method): 
+def term_per_doc_func(processing_method, stemming_method, query , method , vect=None): 
     # Doc number , vocabulary size , taille , Term , fréqance
-    # transforme the query
+    #transforme the query
     doc_num = None
     try : 
         doc_num = [int(num) for num in query.split(" ")]
@@ -65,9 +62,10 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
     # Extract data 
     doc_content=""
     if method == "normal" :
-        df = pd.DataFrame(columns=["doc" , "Term" ,"Taille", "Frequance" , "Poids" , "Position"])
+        df = pd.DataFrame(columns=["Doc" , "Term" ,"Taille", "Frequance" , "Scalar"])
     else :
-        df = pd.DataFrame(columns=["Term" , "Doc" ,"Taille" ,"Frequance" , "Poids" , "Position"])
+        df = pd.DataFrame(columns=["Term" , "Doc" ,"Taille" ,"Frequance" , "Scalar"])
+    
     if doc_num :
         for i in doc_num:
             doc_content = open(f"Collections/D{i}.txt").read()
@@ -113,11 +111,10 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
 
             #building df 
             for j in words :
-                positions = get_position(j , words_redandance)
                 if method == "normal" :
-                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions]
+                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition)]
                 else :
-                    df.loc[len(df)] = [j , i ,doc_size,freqs[j]  ,calculate_weight(j ,freqs, maximum ,apparition) , positions]
+                    df.loc[len(df)] = [j , i ,doc_size,freqs[j]  ,calculate_weight(j ,freqs, maximum ,apparition)]
         if method == "normal":
             display_results(df)
         else :
@@ -138,47 +135,73 @@ def term_per_doc_func(processing_method, stemming_method, query , method):
             # remove stop words 
             words = [word for word in words if word not in stop_words]
 
-            #Stemming
+            # Stemming
             if stemming_method == "Porter":
                 stemmer = PorterStemmer()
                 words = [stemmer.stem(word) for word in words]
-                query = stemmer.stem(query)
+                if vect :
+                    query_try = query.split(" ")
+                    query_try = [stemmer.stem(i) for i in query_try]
+                else:
+                    query_try = stemmer.stem(query)
+                
                 words_redandance = [stemmer.stem(word) for word in words_redandance]
             elif stemming_method == "Lancaster":
                 stemmer = LancasterStemmer()
                 words = [stemmer.stem(word) for word in words]
-                query = stemmer.stem(query)
+                if vect :
+                    query_try = query.split(" ")
+                    query_try = [stemmer.stem(i) for i in query_try ]
+                else:
+                    query_try = stemmer.stem(query)
                 words_redandance = [stemmer.stem(word) for word in words_redandance]
             else :
                 stemmer =None
-            
             # remove stop words 
             words = [word for word in words if word not in stop_words]
-
             doc_size = len(words)
 
             #Calculate freancies and max number of frequencies
             freqs , maximum = calcule_freq(words)
 
             #remove non needed query 
-            words = [word for word in words if word == query]
-
+            if vect :
+                words = [word for word in words if word in query_try]
+            else : 
+                words = [word for word in words if word == query_try]
             # Calculer l'appartition dans les autres document 
             apparition = calcule_apparition(stemmer , processing_method)
-
             # remove redandancy 
             words = list(set(words))
             #building df 
             for j in words :
-                positions = get_position(j , words_redandance)
                 if method == "normal" :
-                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions]
+                    df.loc[len(df)] = [i , j ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) ]
                 else :
-                    df.loc[len(df)] = [j , i ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) , positions]
-        if method == "normal":
-            display_results(df)
-        else :
-            display_results(df.sort_values(by="Term").reset_index())
+                    df.loc[len(df)] = [j , i ,doc_size, freqs[j] ,calculate_weight(j ,freqs, maximum ,apparition) ]
+        
+        import numpy as np
+         
+        if vect:
+            # produit scalaire
+            df_grouped = df.groupby(["Doc"]).sum()
+            df_grouped = df_grouped.sort_values(by="Scalar", ascending=False).reset_index()
+
+            # RSV
+            rsv_results = {}
+            for doc_id, dot_product in df_grouped.items():
+                # Get document vector magnitude
+                doc_vector = df[df['Doc'] == doc_id]['Scalar'].values
+                doc_magnitude = math.sqrt(sum(val**2 for val in doc_vector))
+
+                # Get query vector magnitude
+                query_magnitude = math.sqrt(sum(val**2 for val in df['Scalar']))
+
+                rsv = dot_product / (query_magnitude * doc_magnitude) if (query_magnitude * doc_magnitude) != 0 else 0
+                rsv_results[doc_id] = rsv
+
+            st.dataframe(rsv_results)
+
 
 st.title("Search and Indexing Tool")
 st.subheader("Query:")
@@ -195,7 +218,8 @@ if st.button("Search"):
     if not search_query:
         st.error("Please enter a search query.")
     else:
-        if indexing_method == "DOCS per TERM (Inverse)":
-            term_per_doc_func(processing_method, stemming_method, search_query , "inverse")
-        else:  # TERMS per DOC
-            term_per_doc_func(processing_method, stemming_method, search_query , "normal")
+        if len(search_query.split()) > 1:
+            if indexing_method == "DOCS per TERM (Inverse)":
+                term_per_doc_func(processing_method, stemming_method, search_query , "inverse" , vect = True)
+            else:  # TERMS per DOC
+                term_per_doc_func(processing_method, stemming_method, search_query , "normal" , vect = True)
