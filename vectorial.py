@@ -49,7 +49,6 @@ def calcule_apparition(stemmer , tokenizer):
 def calculate_weight(word ,freqs, maximum , apparition):
     weight = (freqs[word] / maximum)*math.log10(6/apparition[word] + 1)
     return weight
-
 #normal
 def term_per_doc_func(processing_method, stemming_method, query , method , vect=None): 
     # Doc number , vocabulary size , taille , Term , fréqance
@@ -187,21 +186,7 @@ def term_per_doc_func(processing_method, stemming_method, query , method , vect=
             df_grouped = df.groupby(["Doc"]).sum()
             df_grouped = df_grouped.sort_values(by="Scalar", ascending=False).reset_index()
 
-            # RSV
-            rsv_results = {}
-            for doc_id, dot_product in df_grouped.items():
-                # Get document vector magnitude
-                doc_vector = df[df['Doc'] == doc_id]['Scalar'].values
-                doc_magnitude = math.sqrt(sum(val**2 for val in doc_vector))
-
-                # Get query vector magnitude
-                query_magnitude = math.sqrt(sum(val**2 for val in df['Scalar']))
-
-                rsv = dot_product / (query_magnitude * doc_magnitude) if (query_magnitude * doc_magnitude) != 0 else 0
-                rsv_results[doc_id] = rsv
-
-            st.dataframe(rsv_results)
-
+            st.dataframe(df_grouped)
 
 st.title("Search and Indexing Tool")
 st.subheader("Query:")

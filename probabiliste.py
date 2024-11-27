@@ -105,7 +105,6 @@ def compute_bm25(query_terms, document_terms, freq, dl, avgdl, N, ni, k=1.5, b=0
     
     return score
 # Fonction pour calculer le poids des termes
-
 def calculate_weight(freq, max_freq, total_docs, term_doc_count):
     return (freq / max_freq) * math.log10(total_docs / term_doc_count + 1)
 
