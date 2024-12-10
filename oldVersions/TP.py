@@ -57,6 +57,9 @@ def scalar_product(query_terms, doc_id, tf_idf_index):
             scalar_prod += tf_idf_index[term][doc_id]  # Poids de chaque terme dans le document
     return scalar_prod
 
+import math
+
+
 def cosine_similarity(query_terms, doc_id, tf_idf_index):
     # Initialiser les ensembles de termes
     vocabulary = set(tf_idf_index.keys())
@@ -206,8 +209,97 @@ def compute_bm25(query_terms, document_terms, freq, dl, avgdl, N, ni, k, b):
     
     return score
 
+def is_valid_query(query: str) -> bool:
+    # Découper la requête en termes individuels
+    query_terms = query.split()
+    
+    # Vérifier si la requête est vide
+    if not query_terms:
+        return False
+    
+    expect_term = True 
+    previous_term = None
 
+    for term in query_terms:
+        if expect_term:
+            if term in {"NOT","not"}:
+                if previous_term == "NOT":
+                    return False
+                previous_term = term 
+                continue
+            elif term in {"AND", "OR","and","or"}:
+                return False 
+            else:
+                previous_term = term  
+                expect_term = False  
+        else:
+            if term in {"AND", "OR","and","or"}:
+                previous_term = term 
+                expect_term = True 
+            else:
+                return False 
+    
+    return not expect_term
 
+def BooleanParser(tokens, tf_idf_index, doc):
+    if not tokens:
+        return False
+
+    # Traiter le 'OR' (plus faible priorité)
+    if "OR" in tokens or "or" in tokens:
+        or_index = tokens.index("OR") if "OR" in tokens else tokens.index("or")
+
+        left_part = tokens[:or_index]
+        right_part = tokens[or_index + 1:]
+
+        if not left_part or not right_part:
+            return False 
+        
+        if (left_part[0] or right_part[0]) in ["AND", "OR","and","or"] or (right_part[-1] or left_part[-1]) in ["AND", "OR", "NOT","and","or","not"]: 
+           return False
+
+        left_result = BooleanParser(left_part,tf_idf_index, doc)
+        right_result = BooleanParser(right_part,tf_idf_index, doc)
+
+        return left_result or right_result
+
+    # Traiter le 'AND' (moyenn priorité)
+    if "AND" in tokens or "and" in tokens:
+        and_index = tokens.index("AND") if "AND" in tokens else tokens.index("and")
+        left_part = tokens[:and_index]
+        right_part = tokens[and_index + 1:]
+
+        if not left_part or not right_part :
+            return False
+        
+        if (left_part[0] or right_part[0]) in ["AND", "OR","and","or"] or (right_part[-1] or left_part[-1]) in ["AND", "OR", "NOT","and","or","not"]: 
+           return False
+
+        left_result = BooleanParser(left_part, tf_idf_index,  doc)
+        right_result = BooleanParser(right_part, tf_idf_index, doc)
+
+        return left_result and right_result
+
+    # Traiter le 'NOT' (Plus Haute priorité)
+    if tokens[0] in {"NOT","not"}:
+        if len(tokens) < 2 or tokens[1] in {"NOT","not"}:
+            return False
+        not_result = not BooleanParser([tokens[1]],tf_idf_index, doc)
+        # Si des termes suivent, continuez l'analyse
+        return not_result
+
+    # 1 token
+    if len(tokens) == 1:
+        if tokens[0] in ["AND", "OR", "NOT","and","or","not"]: 
+           return False
+        return isInFile(tokens[0], tf_idf_index, doc)
+
+    return False
+
+def isInFile(token, tf_idf_index, docnum):
+    if token in tf_idf_index and docnum in tf_idf_index[token]:
+                return True
+    return False
 
 # Interface Streamlit
 st.title("Visualisation des index TF-IDF")
@@ -219,12 +311,17 @@ query_terms = query.split(" ")  # Diviser les termes de la requête
 # Options de traitement
 method = st.selectbox("Processing", ["Split", "RegExp"])
 stemming = st.selectbox("Stemmer", ["Without", "Porter", "Lancaster"])
-index_option = st.radio("Index", ["DOCS per TERM", "TERMS per DOC", "SCALAR PRODUCT", "COSINE SIMILARITY", "JACCARD INDEX","Probabolistic Model (BM25)"])
+index_option = st.radio("Index", ["DOCS per TERM", "TERMS per DOC", "SCALAR PRODUCT", "COSINE SIMILARITY", "JACCARD INDEX","Probabolistic Model (BM25)","Boolean Model"])
 
 if index_option == "Probabolistic Model (BM25)" :
     # Inputs pour K et B avec Streamlit
     k = st.number_input("Entrez la valeur de K", min_value=0.0, value=1.5, step=0.1)
     b = st.number_input("Entrez la valeur de B", min_value=0.0, max_value=1.0, value=0.75, step=0.05)
+
+if index_option == "Boolean Model":
+    # Simple test : pour tester une requete quelquonque si elle est valide
+    # Document test : tester uen requete relative au documents
+    option = st.radio("Option",["Simple test","Document test"])
 
 # Traitement des requêtes
 if st.button("Search"):
@@ -354,6 +451,50 @@ if st.button("Search"):
             st.write("### Résultats BM25 :")
             for doc_id, score in results:
                 st.write(f"**Document {doc_id}** : Score = {score:.4f}")
-            
+        
+        
+        elif index_option == "Boolean Model":
+            # Initialisation du Stemmer selon l'option choisie
+            stemmer = PorterStemmer() if stemming == "Porter" else LancasterStemmer() if stemming == "Lancaster" else None
+
+            # Pré-traitement des termes de la requête
+            query_terms = query.split(" ")
+            query_terms_stemmed = [
+                stemmer.stem(term.strip()) if stemmer else term.strip() 
+                for term in query_terms if term.strip()
+            ]
+
+            # Vérification de l'option
+            if option == "Simple test":
+                query_validity = is_valid_query(query)
+                if query_validity:
+                    st.write("TRUE: VALID QUERY")
+                else:
+                    st.write("FALSE: INVALID QUERY")
+
+            elif option == "Document test":
+                query_validity = is_valid_query(query)
+                if query_validity:
+                    results = []
+
+                    # Appliquer le modèle booléen
+                    for doc_id, terms in index_terms_per_doc.items():
+                        matched_terms = [term for term in query_terms_stemmed if term in terms]
+                        if matched_terms and BooleanParser(query_terms_stemmed, tf_idf_index, doc_id):
+                            results.append((doc_id, True, ", ".join(matched_terms)))
+
+                    # Afficher les résultats
+                    if results:
+                        st.write("TRUE: VALID QUERY")
+                        st.write("Matching documents:")
+
+                        # Créer un DataFrame pour les résultats
+                        df = pd.DataFrame(results, columns=["Document ID", "Matched", "Detected Terms"])
+                        st.dataframe(df)
+                    else:
+                        st.write("No matching documents found.")
+                else:
+                    st.write("FALSE: INVALID QUERY")
+
     else:
         st.error("Le chemin du dossier est invalide ou vide.")
