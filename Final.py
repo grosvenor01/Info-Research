@@ -56,7 +56,9 @@ def get_position(word , words):
 def term_per_doc_func(processing_method, stemming_method, query, method):
     doc_num = None
     try:
-        doc_num = [int(num) for num in query.split(" ")]
+        start = int(query.split(" ")[0])
+        end = int(query.split(" ")[1])
+        doc_num = [num for num in range(start , end)]
     except Exception as e:
         print(e)
 
@@ -74,6 +76,7 @@ def term_per_doc_func(processing_method, stemming_method, query, method):
 
     if doc_num:
         for i in doc_num:
+            print(i)
             doc_content = open(f"Collections/D{i}.txt").read()
             if processing_method == "Regex":
                 words = Extract_Regex(doc_content)
@@ -1540,18 +1543,62 @@ def boolean_model(query,stemming,preprocessing):
 
     return boolean_dict
 
-"""term_per_doc_func("Split", "Porter", "1 2 3 4 5 6", "normal")
-term_per_doc_func("Split", "Lancaster", "1 2 3 4 5 6", "normal")
-term_per_doc_func("Split", None, "1 2 3 4 5 6", "normal")
-term_per_doc_func("Split", "Porter", "1 2 3 4 5 6", "inverse")
-term_per_doc_func("Split", "Lancaster", "1 2 3 4 5 6", "inverse")
-term_per_doc_func("Split", None, "1 2 3 4 5 6", "inverse")
+def evaluation(query):
+    query = query.replace(" " , " OR ")
+    result = boolean_model(query , "No Stemming" , "Split")
+    pertinant = 0
+    all_docs = 0
+    precision=[]
+    for i in result.keys():
+        if result[i]:
+            pertinant +=1
+            all_docs +=1
+        else:
+            all_docs +=1
+        precision.append(pertinant/all_docs)
+    print(precision)
+    exist=0
+    rappel=[]
+    for i in result.keys():
+        if result[i]:
+            exist +=1
+        rappel.append(exist/pertinant)
+    print(rappel)
+    dectionnaire = {}
 
-term_per_doc_func("Regex", "Porter", "1 2 3 4 5 6", "normal")
-term_per_doc_func("Regex", "Lancaster", "1 2 3 4 5 6", "normal")
-term_per_doc_func("Regex", None, "1 2 3 4 5 6", "normal")
-term_per_doc_func("Regex", "Porter", "1 2 3 4 5 6", "inverse")
-term_per_doc_func("Regex", "Lancaster", "1 2 3 4 5 6", "inverse")
-term_per_doc_func("Regex", None, "1 2 3 4 5 6", "inverse")"""
+    for i in range(len(result.keys())):
+        dectionnaire[f"doc{i+1}"] = [precision[i] , rappel[i]]
+    print(dectionnaire)
+    final ={}
+    j=0
+    while j <= 1:
+        value = dectionnaire["doc1"][1]
+        for k in dectionnaire.keys():
+            x = dectionnaire[k][1]
+            print(x)
+            if value < x : 
+                value = x
 
-print(bm25('LLM-based solutions for information retrieval','Porter','Reg',1.50,0.75))
+        final[j] = value
+        j=j+0.1
+    
+    print(final)
+    return final
+    # precision : nombre document pertinant / nombre document selectionné 
+    # Rappel
+    # F score  
+"""term_per_doc_func("Split", "Porter", "1 1034", "normal")
+term_per_doc_func("Split", "Lancaster", "1 1034", "normal")
+term_per_doc_func("Split", None, "1 1034", "normal")
+term_per_doc_func("Split", "Porter", "1 1034", "inverse")
+term_per_doc_func("Split", "Lancaster", "1 1034", "inverse")
+term_per_doc_func("Split", None, "1 1034", "inverse")"""
+
+term_per_doc_func("Regex", "Porter", "1 1034", "normal")
+term_per_doc_func("Regex", "Lancaster", "1 1034", "normal")
+term_per_doc_func("Regex", None, "1 1034", "normal")
+term_per_doc_func("Regex", "Porter", "1 1034", "inverse")
+term_per_doc_func("Regex", "Lancaster", "1 1034", "inverse")
+term_per_doc_func("Regex", None, "1 1034", "inverse")
+
+evaluation("Please provide recent works on ranking documents using large language models (LLMs)")
