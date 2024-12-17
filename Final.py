@@ -4,12 +4,15 @@ import nltk , math , re , os
 import pandas as pd
 from nltk import PorterStemmer , LancasterStemmer
 from collections import Counter
+import matplotlib.pyplot as plt
+import streamlit as st
 # Initialization
 Porter = nltk.PorterStemmer()
 Lancaster = nltk.LancasterStemmer() 
 
 ExpReg = nltk.RegexpTokenizer('(?:[A-Za-z]\.)+|[A-Za-z]+[\-@]\d+(?:\.\d+)?|\d+[A-Za-z]+|\d+(?:[\.\,\-]\d+)?%?|\w+(?:[\-/]\w+)*') # \d : équivalent à [0-9] 
-StopWords = nltk.corpus.stopwords.words('english') 
+
+StopWords= nltk.corpus.stopwords.words('english') 
 stop_words = nltk.corpus.stopwords.words('english') 
 
 def Extract_Regex(text):
@@ -46,7 +49,7 @@ def calcule_apparition(stemmer , tokenizer):
     return apparition 
 
 def calculate_weight(word ,freqs, maximum , apparition):
-    weight = (freqs[word] / maximum)*math.log10(6/apparition[word] + 1)
+    weight = (freqs[word] / maximum)*math.log10(1034/apparition[word] + 1)
     return weight
 
 def get_position(word , words):
@@ -858,10 +861,10 @@ def bm25(query,stemming,preprocessing,K,B):
     freq = []
     n = {}
     bm25_dict = {}
-    N = 6
+    N = 1034
     
     #initialization of the frequencies dictionnaries of each document 
-    for i in range(6):
+    for i in range(N):
          freq.append({})
     file_path = ""
     if preprocessing == "Split":
@@ -1172,10 +1175,9 @@ def validate_logic_query(query):
     return valid
 
 def boolean_model(query,stemming,preprocessing):
-   
     boolean_dict = {}
     terms_dictionnaries = []
-    N = 6
+    N = 1034
     file_path = ""
     if preprocessing == "Split":
             match stemming:
@@ -1186,7 +1188,7 @@ def boolean_model(query,stemming,preprocessing):
 
                     
                     file_path = 'Discripteur/descripteursplit_inverse.txt'
-                    query_terms = list([term for term in query.split() if term.lower() not in StopWords])                     
+                    query_terms = [term for term in query.split() if term.lower() not in StopWords]                     
                     print('Query terms:', query_terms)
 
                     # Extracting query terms without operators
@@ -1543,50 +1545,115 @@ def boolean_model(query,stemming,preprocessing):
 
     return boolean_dict
 
-def evaluation(query):
-    query = query.replace(" " , " OR ")
-    result = boolean_model(query , "No Stemming" , "Split")
-    pertinant = 0
-    all_docs = 0
-    precision=[]
-    for i in result.keys():
-        if result[i]:
-            pertinant +=1
-            all_docs +=1
-        else:
-            all_docs +=1
-        precision.append(pertinant/all_docs)
-    print(precision)
-    exist=0
-    rappel=[]
-    for i in result.keys():
-        if result[i]:
-            exist +=1
-        rappel.append(exist/pertinant)
-    print(rappel)
-    dectionnaire = {}
+import numpy as np
 
-    for i in range(len(result.keys())):
-        dectionnaire[f"doc{i+1}"] = [precision[i] , rappel[i]]
-    print(dectionnaire)
-    final ={}
-    j=0
-    while j <= 1:
-        value = dectionnaire["doc1"][1]
-        for k in dectionnaire.keys():
-            x = dectionnaire[k][1]
-            print(x)
-            if value < x : 
-                value = x
+def show_plot(recalls, precisions):
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(5, 3))
+    ax.set_title("Recall/Precision Curve")
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.plot(recalls, precisions, color='teal', marker='o')
+    plt.tight_layout()
+    st.pyplot(fig)
 
-        final[j] = value
-        j=j+0.1
+def model_evaluation(query,model_results):
+    model_returned_docs = list(model_results.keys())
+    real_relevant_docs = []
+    query_id = 0
+    print( query)
     
-    print(final)
-    return final
-    # precision : nombre document pertinant / nombre document selectionné 
-    # Rappel
-    # F score  
+    print(model_returned_docs)
+    file_path = 'Converters/MED.QRY'
+    query_id = None
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+        current_id = None
+        current_query = ""
+    
+        for line in lines:
+            line = line.strip()
+            if line.startswith(".I"):
+                if current_query.strip() == query:
+                    query_id = current_id
+                    break
+                current_id = int(line.split()[1])  # Extract the query ID
+                current_query = ""  # Reset the query text for the new query
+            elif not line.startswith(".W"):
+                current_query += line + " "  # Add the line to the query text
+            if current_query.strip() == query:
+                query_id = current_id
+    if query_id is not None:
+        print(f"The query ID is: {query_id}")
+ 
+    else:
+        print("Query not found.")
+        return None , None , None , None ,  None , None , None , None , None
+        
+
+    
+    file_path = 'Converters/MED.REL'
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+        for line in lines:
+            parts = line.split()
+            if int(parts[0]) == query_id:
+                real_relevant_docs.append(parts[2])
+    print(real_relevant_docs)
+    
+    selected_relevant_docs = 0
+    selected_relevant_docs_rang_5 = 0
+    selected_relevant_docs_rang_10 = 0
+
+    for i,doc in enumerate(model_returned_docs):
+
+        if i < 5:
+            if doc in real_relevant_docs:
+                selected_relevant_docs_rang_5 += 1
+                selected_relevant_docs_rang_10 += 1
+                selected_relevant_docs += 1
+        elif i < 10:
+            if doc in real_relevant_docs:
+                selected_relevant_docs_rang_10 += 1
+                selected_relevant_docs += 1
+        else:
+            if doc in real_relevant_docs:
+                selected_relevant_docs += 1
+    
+    print('selected_relevant_docs:',selected_relevant_docs)
+    p = selected_relevant_docs / len(model_returned_docs)
+
+    p5 = selected_relevant_docs_rang_5 / 5
+
+    p10 = selected_relevant_docs_rang_10 / 10
+
+    r = selected_relevant_docs / len(real_relevant_docs)
+
+    F_score = ( 2 * p * r ) / ( p + r)
+
+    recalls = []
+    precesions = []
+    selected_relevant_docs = 0
+    print('len(real_relevant_docs)',len(real_relevant_docs))
+    for i,doc in enumerate(model_returned_docs):
+            if doc in real_relevant_docs:
+                selected_relevant_docs += 1
+            print('i + 1 ', i + 1 )
+            print('selected_relevant_docs' , selected_relevant_docs)
+            p = selected_relevant_docs / ( i + 1 )
+            r = selected_relevant_docs / len(real_relevant_docs)
+            precesions.append(p)
+            recalls.append(r)
+    recalls2 = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8,0.9,1.0]
+    precisions2 = []
+    for r2 in recalls2:
+        max_precision = 0
+        for r, p in zip(recalls, precesions):
+                if r >= r2:
+                    max_precision = max(max_precision, p)
+        precisions2.append(max_precision)
+    return p , p5 , p10 , r ,  F_score , precesions , recalls , precisions2 , recalls2
+
 """term_per_doc_func("Split", "Porter", "1 1034", "normal")
 term_per_doc_func("Split", "Lancaster", "1 1034", "normal")
 term_per_doc_func("Split", None, "1 1034", "normal")
@@ -1594,11 +1661,10 @@ term_per_doc_func("Split", "Porter", "1 1034", "inverse")
 term_per_doc_func("Split", "Lancaster", "1 1034", "inverse")
 term_per_doc_func("Split", None, "1 1034", "inverse")"""
 
-term_per_doc_func("Regex", "Porter", "1 1034", "normal")
+"""#term_per_doc_func("Regex", "Porter", "1 1034", "normal")
 term_per_doc_func("Regex", "Lancaster", "1 1034", "normal")
 term_per_doc_func("Regex", None, "1 1034", "normal")
 term_per_doc_func("Regex", "Porter", "1 1034", "inverse")
 term_per_doc_func("Regex", "Lancaster", "1 1034", "inverse")
-term_per_doc_func("Regex", None, "1 1034", "inverse")
+term_per_doc_func("Regex", None, "1 1034", "inverse")"""
 
-evaluation("Please provide recent works on ranking documents using large language models (LLMs)")

@@ -1,5 +1,6 @@
 import streamlit as st
 from Final import *
+import matplotlib.pyplot as plt
 def main():
     st.title("Information Retrieval System")
 
@@ -48,7 +49,16 @@ def main():
                 st.error(f"An error occurred: {e}")
         else:
             st.warning("Please enter a query.")
-
+        p , p5 , p10 , r ,  F_score , precesions , recalls , precisions2 , recalls2 = model_evaluation(query,results)
+        show_plot(recalls2, precisions2)
+        st.title("Metrics and Performance Evaluation")
+        # Display metrics
+        st.subheader("Key Metrics")
+        st.metric(label="Precision (P)", value=f"{p:.2f}")
+        st.metric(label="Precision@5 (P@5)", value=f"{p5:.2f}")
+        st.metric(label="Precision@10 (P@10)", value=f"{p10:.2f}")
+        st.metric(label="Recall (R)", value=f"{r:.2f}")
+        st.metric(label="F-Score", value=f"{F_score:.2f}")
 
 if __name__ == "__main__":
     main()
