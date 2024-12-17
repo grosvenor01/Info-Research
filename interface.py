@@ -20,6 +20,7 @@ def main():
     if st.sidebar.button("Submit Query"):
         if query:
             try:
+                # Select the retrieval method
                 if retrieval_method == "RSV":
                     results = rsv(query, stemming_method, preprocessing_method)
                 elif retrieval_method == "Cosine":
@@ -34,31 +35,37 @@ def main():
                     st.error("Invalid retrieval method selected.")
                     return
 
-                # Display results (replace with your desired output format)
+                # Display results in a DataFrame
                 st.subheader("Search Results:")
                 if isinstance(results, dict):
-                    st.write("Ranked Results (Document ID : Score):")
-                    for doc_id, score in results.items():
-                        st.write(f"{doc_id}: {score}")
+                    results_df = pd.DataFrame(
+                        list(results.items()), columns=["Document ID", "Score"]
+                    )
+                    st.dataframe(results_df)
                 elif isinstance(results, pd.DataFrame):
                     st.dataframe(results)
                 else:
                     st.write(results)  # Handle other result types as needed
 
+                # Evaluate model and display metrics
+                p, p5, p10, r, F_score, precisions, recalls, precisions2, recalls2 = model_evaluation(query, results)
+                show_plot(recalls2, precisions2)
+
+                st.subheader("Metrics and Performance Evaluation")
+                
+                # Organize metrics into a table
+                metrics_data = {
+                    "Metric": ["Precision (P)", "Precision@5 (P@5)", "Precision@10 (P@10)", "Recall (R)", "F-Score"],
+                    "Value": [f"{p:.2f}", f"{p5:.2f}", f"{p10:.2f}", f"{r:.2f}", f"{F_score:.2f}"]
+                }
+                metrics_df = pd.DataFrame(metrics_data)
+                st.dataframe(metrics_df)
+
             except Exception as e:
                 st.error(f"An error occurred: {e}")
         else:
             st.warning("Please enter a query.")
-        p , p5 , p10 , r ,  F_score , precesions , recalls , precisions2 , recalls2 = model_evaluation(query,results)
-        show_plot(recalls2, precisions2)
-        st.title("Metrics and Performance Evaluation")
-        # Display metrics
-        st.subheader("Key Metrics")
-        st.metric(label="Precision (P)", value=f"{p:.2f}")
-        st.metric(label="Precision@5 (P@5)", value=f"{p5:.2f}")
-        st.metric(label="Precision@10 (P@10)", value=f"{p10:.2f}")
-        st.metric(label="Recall (R)", value=f"{r:.2f}")
-        st.metric(label="F-Score", value=f"{F_score:.2f}")
+
 
 if __name__ == "__main__":
     main()

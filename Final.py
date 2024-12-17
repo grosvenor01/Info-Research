@@ -831,7 +831,7 @@ def jaccard(query,stemming,preprocessing):
                                     som_vi_squred += 1
                                     break
                                 
-                    file_path = 'Discripteur/ddescripteurregexlancaster.txt'
+                    file_path = 'Discripteur/descripteurregexlancaster.txt'
                     
                     with open(file_path, 'r', encoding='utf-8') as file:
                          
@@ -1545,8 +1545,6 @@ def boolean_model(query,stemming,preprocessing):
 
     return boolean_dict
 
-import numpy as np
-
 def show_plot(recalls, precisions):
     # Create the plot
     fig, ax = plt.subplots(figsize=(5, 3))
@@ -1558,40 +1556,49 @@ def show_plot(recalls, precisions):
     st.pyplot(fig)
 
 def model_evaluation(query,model_results):
+
     model_returned_docs = list(model_results.keys())
     real_relevant_docs = []
     query_id = 0
     print( query)
-    
     print(model_returned_docs)
     file_path = 'Converters/MED.QRY'
     query_id = None
+
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
         current_id = None
         current_query = ""
     
         for line in lines:
-            line = line.strip()
+            line = line.strip()  # Remove leading/trailing whitespace
+
+            # Check if the line starts a new query with .I
             if line.startswith(".I"):
+                # If a query has been accumulated and matches the input query, set the query_id
                 if current_query.strip() == query:
                     query_id = current_id
                     break
+            
+                # Start a new query
                 current_id = int(line.split()[1])  # Extract the query ID
                 current_query = ""  # Reset the query text for the new query
+        
+                # Accumulate query text, skip lines starting with .W
             elif not line.startswith(".W"):
                 current_query += line + " "  # Add the line to the query text
+
+            # Final check in case the matching query is at the end of the file
             if current_query.strip() == query:
                 query_id = current_id
+
+         # Output the result
     if query_id is not None:
         print(f"The query ID is: {query_id}")
  
     else:
         print("Query not found.")
         return None , None , None , None ,  None , None , None , None , None
-        
-
-    
     file_path = 'Converters/MED.REL'
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
@@ -1599,6 +1606,7 @@ def model_evaluation(query,model_results):
             parts = line.split()
             if int(parts[0]) == query_id:
                 real_relevant_docs.append(parts[2])
+    
     print(real_relevant_docs)
     
     selected_relevant_docs = 0
@@ -1640,31 +1648,31 @@ def model_evaluation(query,model_results):
                 selected_relevant_docs += 1
             print('i + 1 ', i + 1 )
             print('selected_relevant_docs' , selected_relevant_docs)
-            p = selected_relevant_docs / ( i + 1 )
-            r = selected_relevant_docs / len(real_relevant_docs)
-            precesions.append(p)
-            recalls.append(r)
+            p1 = selected_relevant_docs / ( i + 1 )
+            r1 = selected_relevant_docs / len(real_relevant_docs)
+            precesions.append(p1)
+            recalls.append(r1)
     recalls2 = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8,0.9,1.0]
     precisions2 = []
     for r2 in recalls2:
         max_precision = 0
-        for r, p in zip(recalls, precesions):
-                if r >= r2:
-                    max_precision = max(max_precision, p)
+        for rec, pre in zip(recalls, precesions):
+                if rec >= r2:
+                    max_precision = max(max_precision, pre)
         precisions2.append(max_precision)
     return p , p5 , p10 , r ,  F_score , precesions , recalls , precisions2 , recalls2
+
 
 """term_per_doc_func("Split", "Porter", "1 1034", "normal")
 term_per_doc_func("Split", "Lancaster", "1 1034", "normal")
 term_per_doc_func("Split", None, "1 1034", "normal")
 term_per_doc_func("Split", "Porter", "1 1034", "inverse")
 term_per_doc_func("Split", "Lancaster", "1 1034", "inverse")
-term_per_doc_func("Split", None, "1 1034", "inverse")"""
-
-"""#term_per_doc_func("Regex", "Porter", "1 1034", "normal")
+term_per_doc_func("Split", None, "1 1034", "inverse")
+term_per_doc_func("Regex", "Porter", "1 1034", "normal")
 term_per_doc_func("Regex", "Lancaster", "1 1034", "normal")
 term_per_doc_func("Regex", None, "1 1034", "normal")
 term_per_doc_func("Regex", "Porter", "1 1034", "inverse")
 term_per_doc_func("Regex", "Lancaster", "1 1034", "inverse")
-term_per_doc_func("Regex", None, "1 1034", "inverse")"""
-
+term_per_doc_func("Regex", None, "1 1034", "inverse")
+"""
