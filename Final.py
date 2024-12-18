@@ -6,6 +6,9 @@ from nltk import PorterStemmer , LancasterStemmer
 from collections import Counter
 import matplotlib.pyplot as plt
 import streamlit as st
+import ast 
+import pandas as pd
+import streamlit as st
 # Initialization
 Porter = nltk.PorterStemmer()
 Lancaster = nltk.LancasterStemmer() 
@@ -49,7 +52,7 @@ def calcule_apparition(stemmer , tokenizer):
     return apparition 
 
 def calculate_weight(word ,freqs, maximum , apparition):
-    weight = (freqs[word] / maximum)*math.log10(1034/apparition[word] + 1)
+    weight = (freqs[word] / maximum)*math.log10(1033/apparition[word] + 1)
     return weight
 
 def get_position(word , words):
@@ -861,7 +864,7 @@ def bm25(query,stemming,preprocessing,K,B):
     freq = []
     n = {}
     bm25_dict = {}
-    N = 1034
+    N = 1033
     
     #initialization of the frequencies dictionnaries of each document 
     for i in range(N):
@@ -1177,7 +1180,7 @@ def validate_logic_query(query):
 def boolean_model(query,stemming,preprocessing):
     boolean_dict = {}
     terms_dictionnaries = []
-    N = 1034
+    N = 1033
     file_path = ""
     if preprocessing == "Split":
             match stemming:
@@ -1662,17 +1665,66 @@ def model_evaluation(query,model_results):
         precisions2.append(max_precision)
     return p , p5 , p10 , r ,  F_score , precesions , recalls , precisions2 , recalls2
 
+def affichage_simple(query, stemming, preprocessing, method):
+    filename = f"Discripteur/descripteur{preprocessing.lower()}"
+    if stemming and stemming != "No Stemming":
+        filename += stemming.lower()
 
-"""term_per_doc_func("Split", "Porter", "1 1034", "normal")
-term_per_doc_func("Split", "Lancaster", "1 1034", "normal")
-term_per_doc_func("Split", None, "1 1034", "normal")
-term_per_doc_func("Split", "Porter", "1 1034", "inverse")
-term_per_doc_func("Split", "Lancaster", "1 1034", "inverse")
-term_per_doc_func("Split", None, "1 1034", "inverse")
-term_per_doc_func("Regex", "Porter", "1 1034", "normal")
-term_per_doc_func("Regex", "Lancaster", "1 1034", "normal")
-term_per_doc_func("Regex", None, "1 1034", "normal")
-term_per_doc_func("Regex", "Porter", "1 1034", "inverse")
-term_per_doc_func("Regex", "Lancaster", "1 1034", "inverse")
-term_per_doc_func("Regex", None, "1 1034", "inverse")
+    if method == "inverse":
+        filename += "_inverse"
+    filename += ".txt"
+
+    if stemming == "Porter":
+        stemmer = PorterStemmer()
+        query = [stemmer.stem(word) for word in query.split(" ")]
+    elif stemming == "Lancaster":
+        stemmer = LancasterStemmer()
+        query = [stemmer.stem(word) for word in query.split(" ")]
+    try:
+        # Read the file line by line
+        data = []
+        with open(filename, "r") as file:
+            for line in file:
+                # Split the line by whitespace
+                parts = line.strip().split()
+                
+                # Use only the first 5 elements
+                if len(parts) >= 5:
+                    word, col1, col2, col3, score = parts[:5]
+                    positions = " ".join(parts[5:])  
+                    if word in query : 
+                        data.append({
+                            "Word": word,
+                            "Col1": int(col1),
+                            "Col2": int(col2),
+                            "Col3": int(col3),
+                            "Score": float(score),
+                            "positions": positions
+                        })
+
+        # Create the DataFrame
+        df = pd.DataFrame(data)
+
+        # Display the DataFrame in Streamlit
+        st.subheader("Processed Data")
+        st.dataframe(df)
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+
+
+        
+"""term_per_doc_func("Split", "Porter", "1 1033", "normal")
+term_per_doc_func("Split", "Lancaster", "1 1033", "normal")
+term_per_doc_func("Split", None, "1 1033", "normal")
+term_per_doc_func("Split", "Porter", "1 1033", "inverse")
+term_per_doc_func("Split", "Lancaster", "1 1033", "inverse")
+term_per_doc_func("Split", None, "1 1033", "inverse")
+term_per_doc_func("Regex", "Porter", "1 1033", "normal")
+term_per_doc_func("Regex", "Lancaster", "1 1033", "normal")
+term_per_doc_func("Regex", None, "1 1033", "normal")
+term_per_doc_func("Regex", "Porter", "1 1033", "inverse")
+term_per_doc_func("Regex", "Lancaster", "1 1033", "inverse")
+term_per_doc_func("Regex", None, "1 1033", "inverse")
 """

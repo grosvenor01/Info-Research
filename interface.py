@@ -9,7 +9,7 @@ def main():
     query = st.sidebar.text_input("Enter your query:", "")
     stemming_method = st.sidebar.selectbox("Stemming Method:", ["No Stemming", "Porter", "Lancaster"])
     preprocessing_method = st.sidebar.selectbox("Preprocessing Method:", ["Split", "Regex"])
-    retrieval_method = st.sidebar.selectbox("Retrieval Method:", ["RSV", "Cosine", "Jaccard", "BM25", "Boolean"])
+    retrieval_method = st.sidebar.selectbox("Retrieval Method:", ["Affichage Simple" , "RSV", "Cosine", "Jaccard", "BM25", "Boolean"])
 
     # BM25 parameters (only show if BM25 is selected)
     if retrieval_method == "BM25":
@@ -31,6 +31,10 @@ def main():
                     results = bm25(query, stemming_method, preprocessing_method, k, b)
                 elif retrieval_method == "Boolean":
                     results = boolean_model(query, stemming_method, preprocessing_method)
+                elif retrieval_method == "Affichage Simple" : 
+                    affichage_simple(query , stemming_method , preprocessing_method , "normal" )
+                    affichage_simple(query , stemming_method , preprocessing_method , "inverse" )
+                    return
                 else:
                     st.error("Invalid retrieval method selected.")
                     return
